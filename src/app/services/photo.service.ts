@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 
 import { Camera, CameraResultType, CameraSource, Photo } from '@capacitor/camera';
 import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Preferences } from '@capacitor/preferences';
 
 export interface UserPhoto{
   filepath: string;
@@ -14,6 +15,7 @@ export interface UserPhoto{
 
 export class PhotoService {
   public photos: UserPhoto[]=[];
+  private PHOTO_STORAGE: string = 'photos';
 
   constructor() { }
 
@@ -32,6 +34,11 @@ export class PhotoService {
 
     const savedImageFile = await this.savePicture(capturedPhoto);
     this.photos.unshift(savedImageFile);
+
+    Preferences.set({
+      key: this.PHOTO_STORAGE,
+      value: JSON.stringify(this.photos),
+    });
 
   }
 
@@ -70,4 +77,19 @@ export class PhotoService {
     };
     reader.readAsDataURL(blob);
   });
+
+  public async loadSaved(){
+
+    const { value } = await Preferences.get({key: this.PHOTO_STORAGE});
+    this.photos = (value ? JSON.parse(value) : []) as UserPhoto[];
+
+    for(let photo of this.photos){
+      const readFile = await Filesystem.readFile({
+        path: photo.filepath,
+        directory: Directory.Data,
+      });
+
+      photo.webviewPath = `data:image/jpeg;base64,${readFile.data}`;
+    }
+  }
 }
